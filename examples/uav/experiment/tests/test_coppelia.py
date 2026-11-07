@@ -42,15 +42,6 @@ class FakeSim:
     def setScriptStringParam(self, script, param, text):
         self.text = text
 
-    def getObject(self, path, options):
-        return 10 + options['index']
-
-    def getObjectParent(self, handle):
-        return handle + 100
-
-    def getObjectChild(self, handle, index):
-        return handle + 200
-
 
 class ConversionTest(unittest.TestCase):
     def test_scene_to_net_matches_original_mapping(self):
@@ -96,15 +87,6 @@ class LaunchArgvTest(unittest.TestCase):
 
 
 class SceneTest(unittest.TestCase):
-    def test_ensure_drones(self):
-        handles = coppelia.ensure_drones(FakeSim(), 2)
-        self.assertEqual(handles, [coppelia.DroneHandles(10, 110, 210),
-                                   coppelia.DroneHandles(11, 111, 211)])
-
-    def test_ensure_drones_beyond_scene(self):
-        with self.assertRaises(NotImplementedError):
-            coppelia.ensure_drones(FakeSim(), 4)
-
     def test_disable_builtin_motion(self):
         sim = FakeSim()
         coppelia.disable_builtin_motion(
@@ -138,6 +120,88 @@ class SceneTest(unittest.TestCase):
         sim.pos[1] = [1.0, -0.5, 2.0]
         self.assertEqual(coppelia.read_positions(sim, drones),
                          [(30.0, 60.0, 10.0)])
+
+
+class FakeScene:
+    """Scene with three drone models whose copies get new handles."""
+    handle_all = -2
+    TREE = 4
+
+    def __init__(self, tree_after_copy=None):
+        self.models = [100, 200, 300]
+        self.removed = []
+        self.copies = []
+        self.copied_from = []
+        self.next_handle = 1000
+        self.tree_after_copy = tree_after_copy or self.TREE
+
+    def base_of(self, model):
+        return model + 1
+
+    def getObject(self, path, options):
+        if path == '/Quadricopter_base':
+            return self.base_of(self.models[options['index']])
+        return self.base_of(options['proxy'])
+
+    def getObjectParent(self, handle):
+        return handle - 1
+
+    def getObjectChild(self, handle, index):
+        return handle + 1
+
+    def copyPasteObjects(self, handles, options):
+        self.copied_from.append((handles, options))
+        self.next_handle += 10
+        self.copies.append(self.next_handle)
+        return [self.next_handle]
+
+    def getObjectsInTree(self, handle, kind, options):
+        if handle in self.copies:
+            return list(range(self.tree_after_copy))
+        return list(range(self.TREE))
+
+    def removeModel(self, handle):
+        self.removed.append(handle)
+
+
+class EnsureDronesTest(unittest.TestCase):
+    def test_fewer_drones_remove_the_unused_models(self):
+        sim = FakeScene()
+        handles = coppelia.ensure_drones(sim, 1)
+        self.assertEqual(handles, [coppelia.DroneHandles(101, 100, 102)])
+        self.assertEqual(sim.removed, [200, 300])
+        self.assertEqual(sim.copies, [])
+
+    def test_three_drones_keep_the_scene(self):
+        sim = FakeScene()
+        handles = coppelia.ensure_drones(sim, 3)
+        self.assertEqual([d.model for d in handles], [100, 200, 300])
+        self.assertEqual(sim.removed, [])
+        self.assertEqual(sim.copies, [])
+
+    def test_more_drones_copy_drones_2_and_3_in_order(self):
+        sim = FakeScene()
+        handles = coppelia.ensure_drones(sim, 8)
+        self.assertEqual([d.model for d in handles[:3]], [100, 200, 300])
+        self.assertEqual(
+            sim.copied_from,
+            [([200], 1), ([300], 1), ([200], 1), ([300], 1), ([200], 1)])
+        self.assertEqual([d.model for d in handles[3:]], sim.copies)
+        self.assertEqual(len({d.base for d in handles}), 8)
+        self.assertEqual(sim.removed, [])
+
+    def test_copy_handles_follow_the_copied_model(self):
+        sim = FakeScene()
+        handles = coppelia.ensure_drones(sim, 4)
+        copy = handles[3]
+        self.assertEqual(copy.model, sim.copies[0])
+        self.assertEqual(copy.base, copy.model + 1)
+        self.assertEqual(copy.target, copy.base + 1)
+
+    def test_incomplete_copy_is_an_error(self):
+        sim = FakeScene(tree_after_copy=1)
+        with self.assertRaises(RuntimeError):
+            coppelia.ensure_drones(sim, 4)
 
 
 class StopTest(unittest.TestCase):

@@ -35,6 +35,38 @@ the metrics are done. `--telemetry` (position plot) applies to the CLI only.
 `CoppeliaSim_Edu` next to the script. The scene is `simulation.ttt` unless
 `--scene` is given; it is never modified or saved.
 
+## Drone count
+
+`--drones N` (1 to 32) creates stations `dr1` ... `drN`, with MAC
+`00:00:00:00:00:NN` (N in hex) and address `10.0.0.N/8`. For N above 3 an
+explicit `--formation` is required (only `line` is implemented).
+
+`coppelia.ensure_drones(sim, n)` makes the scene hold exactly `n`
+quadcopters before the simulation starts, and returns their handles in a
+fixed order: the scene drones first (scene order), then the copies in
+creation order. Index `i` is `dr{i + 1}`.
+
+- `n <= 3`: the unused scene drones are removed with `sim.removeModel`.
+- `n > 3`: `sim.copyPasteObjects([model], 1)` pastes whole drone models,
+  alternating between drones 2 and 3 (drone 1 starts the legacy remote API
+  in its script and must not be copied). The base is found relative to the
+  copy (`./Quadricopter_base`) and the target is its child, so no scene-wide
+  index lookup is involved.
+
+Each copy carries its own controller script. The script resolves its target
+and base by name inside its own model, so every copy follows its own target
+and `disable_builtin_motion` works on copies exactly as on the scene drones.
+
+```
+sudo -E python3 uav_experiment.py --no-cli --drones 8 --formation line \
+    --spacing 10 --trajectory static --duration 40
+```
+
+Simulation load grows with the drone count (each drone has propeller
+scripts and two cameras). Measured with software rendering (llvmpipe), the
+simulation runs at about real time up to 5 drones headless, at 0.8x with 8
+and at 0.7x with 10; the GUI is slower (about 0.3x with 5).
+
 ## Output
 
 Each run writes to `--output-dir` (default `./uav-results/<timestamp>`, owned
