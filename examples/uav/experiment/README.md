@@ -80,6 +80,57 @@ by the invoking user when started through sudo):
 | `ping_<src>_<dst>.txt` | raw ping output per pair |
 | `coppeliasim.log` | CoppeliaSim output |
 
+## Formations, trajectories and propagation
+
+All formations are deterministic, lie in the `z = 0` plane and are centred
+on `(50, 50, 0)`, the middle of the CoppeliaSim floor (2.5 m altitude).
+`--spacing` is the distance between neighbours:
+
+| Formation | Layout |
+| --- | --- |
+| `line` | along x |
+| `grid` | `ceil(sqrt(n))` columns, filled row by row |
+| `circle` | evenly on a circle whose neighbour chord is the spacing |
+| `star` | `dr1` in the centre, the others on a circle of radius = spacing |
+| `random` | uniform in a square of side `spacing * ceil(sqrt(n))`, at least `spacing / 2` apart, reproducible with `--seed` (fails with an error when no free spot is found) |
+
+Trajectories are functions of `t`, the seconds since the sync thread
+started, and return the formation position at `t = 0`:
+
+| Trajectory | Motion |
+| --- | --- |
+| `static` | none |
+| `scene` | the built-in pattern of `simulation.ttt` |
+| `sweep` | the formation breathes about the centre in xy, scale `1 ... 3` (`SWEEP_MAX_SCALE`) and back every 60 s (`SWEEP_PERIOD`) |
+| `orbit` | rigid rotation about the centre in xy, one turn per 120 s (`ORBIT_PERIOD`) |
+
+With `--spacing 20` and the default `--exp 4.5` (range about 46 m) `sweep`
+makes neighbours leave each other's range and come back, so pings fail while
+the formation is expanded and succeed again when it contracts. With the
+default 20 s warmup the metrics start while the formation is already
+expanding. The sweep extends the formation up to three times, keep it inside
+the scene floor. With CoppeliaSim the drones follow the targets with a lag of
+about 0.3 s (about 0.3 m).
+
+`--model` selects the wmediumd propagation model; the parameters a model does
+not use are ignored:
+
+| `--model` | Parameters used | wmediumd `model_name` |
+| --- | --- | --- |
+| `friis` | none | `free_space` |
+| `logDistance` | `--exp` | `log_distance` |
+| `twoRayGround` | none | `two_ray_ground` |
+| `logNormalShadowing` | `--exp` | `log_normal_shadowing` |
+| `nakagami` | `--exp`, `--nakagami-m` | `nakagami` |
+| `ITU` | none | `itu` |
+
+Unset parameters keep the Mininet-WiFi defaults. wmediumd stores `--exp` with
+one decimal and `--nakagami-m` with two (and requires it to be at least 0.5),
+so other values are rejected instead of being rounded silently.
+`--variance` is rejected with `logNormalShadowing`: in wmediumd interference
+mode Mininet-WiFi never sends the shadowing sample to wmediumd, so it would
+have no effect.
+
 ## Layout
 
 | Module | Role |
