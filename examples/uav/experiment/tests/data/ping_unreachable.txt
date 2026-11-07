@@ -1,0 +1,23 @@
+PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.
+[1794080765.785394] From 10.0.0.1 icmp_seq=1 Destination Host Unreachable
+[1794080765.785440] From 10.0.0.1 icmp_seq=2 Destination Host Unreachable
+[1794080765.785442] From 10.0.0.1 icmp_seq=3 Destination Host Unreachable
+[1794080765.785443] From 10.0.0.1 icmp_seq=4 Destination Host Unreachable
+[1794080765.785445] From 10.0.0.1 icmp_seq=5 Destination Host Unreachable
+[1794080765.785446] From 10.0.0.1 icmp_seq=6 Destination Host Unreachable
+[1794080768.857238] From 10.0.0.1 icmp_seq=7 Destination Host Unreachable
+[1794080768.857261] From 10.0.0.1 icmp_seq=8 Destination Host Unreachable
+[1794080768.857263] From 10.0.0.1 icmp_seq=9 Destination Host Unreachable
+[1794080768.857264] From 10.0.0.1 icmp_seq=10 Destination Host Unreachable
+[1794080768.857265] From 10.0.0.1 icmp_seq=11 Destination Host Unreachable
+[1794080768.857266] From 10.0.0.1 icmp_seq=12 Destination Host Unreachable
+[1794080771.929249] From 10.0.0.1 icmp_seq=13 Destination Host Unreachable
+[1794080771.929281] From 10.0.0.1 icmp_seq=14 Destination Host Unreachable
+[1794080771.929283] From 10.0.0.1 icmp_seq=15 Destination Host Unreachable
+[1794080771.929284] From 10.0.0.1 icmp_seq=16 Destination Host Unreachable
+[1794080771.929285] From 10.0.0.1 icmp_seq=17 Destination Host Unreachable
+[1794080771.929287] From 10.0.0.1 icmp_seq=18 Destination Host Unreachable
+
+--- 10.0.0.2 ping statistics ---
+20 packets transmitted, 0 received, +18 errors, 100% packet loss, time 9726ms
+pipe 7

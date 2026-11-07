@@ -1,0 +1,10 @@
+{
+  "start": {
+    "connected": [],
+    "version": "iperf 3.16",
+    "system_info": "Linux Rossato 6.18.33.2-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Thu Jun 18 21:54:43 UTC 2026 x86_64"
+  },
+  "intervals": [],
+  "end": {},
+  "error": "unable to connect to server - server may have stopped running or use a different port, firewall issue, etc.: Connection timed out"
+}

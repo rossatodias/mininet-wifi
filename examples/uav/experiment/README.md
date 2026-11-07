@@ -116,6 +116,69 @@ the targets. For any formation other than `scene` the drone models are moved
 to the formation positions before the simulation starts. Real-time mode is
 enabled so simulated time follows wall-clock time.
 
+## Metrics
+
+With `--metrics` the runner calls `metrics.run_metrics(net, cfg, info,
+out_dir)` once, after the warmup. For each pair in `--pairs` it runs, one
+after the other:
+
+1. `ping -D -i <ping-interval> -c <ping-count> -W 1`
+2. `iperf3` TCP for `--iperf-time` seconds
+3. `iperf3` UDP at `--udp-bandwidth` for `--iperf-time` seconds
+
+The iperf3 server runs on the destination with `-s -1` and the client is
+killed if it outlives `--iperf-time` plus a margin, so an unreachable
+destination ends with recorded errors, not a hang. The time per pair is
+about `ping_count * ping_interval + 2 * iperf_time` plus a few seconds of
+overhead. While a pair is measured, the distance between its two drones is
+sampled at about 1 Hz, and the route is recorded before and after:
+
+| Routing | Snapshot | Hops |
+| --- | --- | --- |
+| `batman_adv` | `batctl o`, `batctl tr <MAC of the destination interface>` | last hop of the traceroute |
+| `--tech mesh` | `iw dev <intf> mpath dump` on the source | `HOP_COUNT` of the destination MAC (`null` if no path yet or iw has no such column) |
+| otherwise | none | `null` |
+
+Files written to the output directory, in addition to `config.json` and
+`positions.csv`:
+
+| File | Content |
+| --- | --- |
+| `ping.csv` | `pair,epoch,seq,rtt_ms`, one row per reply (`pair` is `drX:drY`) |
+| `ping_<src>_<dst>.txt` | raw ping output |
+| `iperf_tcp_<src>_<dst>.json`, `iperf_udp_<src>_<dst>.json` | raw iperf3 JSON, or `{"error": ...}` |
+| `distance.csv` | `pair,epoch,distance_m`, sampled at about 1 Hz |
+| `routing_<src>_<dst>.txt` | raw route snapshots, `before` and `after` |
+| `rtt_<src>_<dst>.png` | RTT over time, lost pings in red, distance on the right axis |
+| `summary.json` | results per pair, see below |
+
+All timestamps are epoch seconds, so `ping.csv` and `distance.csv` line up.
+`summary.json` keys are stable; a value that could not be measured is
+`null`:
+
+```
+{
+  "tech": "adhoc", "routing": "batman_adv",
+  "pairs": [{
+    "src": "dr1", "dst": "dr3", "dst_ip": "192.168.123.3",
+    "ping": {"sent": 20, "received": 20, "loss_percent": 0.0,
+             "rtt_ms": {"min": 0.8, "avg": 2.1, "max": 5.0, "mdev": 0.9}},
+    "tcp": {"throughput_mbps": 6.7, "retransmits": 109, "error": null},
+    "udp": {"throughput_mbps": 1.0, "jitter_ms": 0.4,
+            "lost_percent": 0.0, "error": null},
+    "distance_m": {"min": 40.0, "mean": 40.0, "max": 40.0},
+    "hops": {"before": 2, "after": 2},
+    "errors": [],
+    "duration_s": 31.1
+  }]
+}
+```
+
+`rtt_ms` is `null` without replies. Throughputs are measured at the
+receiver (UDP: the rate that arrived). `duration_s` is the wall-clock time of
+the measurements of the pair. `errors` lists `no ping reply` and
+one `tcp: ...` or `udp: ...` entry per failed iperf3 test.
+
 ## Extension points
 
 Each follow-up area is one module with a frozen interface. Choices that are
