@@ -96,6 +96,54 @@ Teardown always runs in reverse order: sync thread, CoppeliaSim (simulation
 stop, then the whole process group is terminated), Mininet-WiFi. SIGTERM and
 Ctrl-C are handled.
 
+## Link technologies
+
+`--tech` selects the wireless technology; `--routing` defaults to
+`batman_adv` for `adhoc` and `none` otherwise.
+
+| `--tech` | Mode | Address | Interface in `LinkInfo.interfaces` |
+| --- | --- | --- | --- |
+| `adhoc` | IBSS, optional batman_adv | `192.168.123.N` on `bat0` with batman_adv, else `10.0.0.N` | `drX-wlan0` |
+| `mesh` | IEEE 802.11s, HWMP path selection | `10.0.0.N` | `drX-mp0` |
+| `infra` | managed stations on one access point | `10.0.0.N` | `drX-wlan0` |
+
+`mesh` needs `--routing none` and `infra` runs without a controller: the
+access point `ap1` uses `failMode='standalone'` and is started with
+`ap.start([])`. `links.endpoint_ip(node, cfg)` returns the address to ping for
+every technology.
+
+The access point is the only node that must exist before
+`net.configureNodes()` and start after `net.build()`, so the runner calls
+`links.add_access_points(net, stations, cfg)` right after the stations are
+created and `links.start(net, info)` right after `net.build()`. Both do
+nothing for `adhoc` and `mesh`. After `build()` the stations are
+disconnected and associated again, since `build()` tried to connect them
+before hostapd was up.
+
+For `infra`, `ap1` sits at the centroid (x, y; z = 0) of the initial
+formation, on the same channel, mode `g`, with SSID `infraNet`. Its range is
+the distance to the farthest drone plus 5 m, rounded up, set with the
+`range` parameter (Mininet-WiFi turns it into a tx power). The coverage is
+computed for the initial formation only: a trajectory that leaves it can
+leave the access point's coverage.
+
+`--warmup` stays a fixed wait. Time until the first and the last drone can
+ping each other, measured from the end of `net.build()` (one run each,
+`--formation line --spacing 20`, `ping -O -D -i 0.5` started right after the
+network came up):
+
+| Technology | Drones | First successful ping |
+| --- | --- | --- |
+| adhoc + batman_adv | 5 (2 hops) | about 18 s |
+| adhoc, no routing | 3 | first ping |
+| mesh | 5 (2 hops) | first ping |
+| infra | 3 and 5 | first ping |
+
+Only batman_adv needs a long warmup: keep the default 20 s with a margin
+(25 s is safer for more drones). The other technologies are ready as soon as
+`net.build()` returns, since the stations are already associated (infra) or
+the path is resolved on the first frame (mesh).
+
 ## Coordinates and motion
 
 The scene and Mininet-WiFi coordinates are related per axis by

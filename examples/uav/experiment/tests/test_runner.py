@@ -136,10 +136,12 @@ class PositionSyncTest(unittest.TestCase):
         targets.assert_not_called()
 
     def test_failure_is_recorded(self):
-        cfg = config.ExperimentConfig(coppelia='off', trajectory='orbit')
+        cfg = config.ExperimentConfig(coppelia='off', trajectory='static')
         with make_sync(cfg) as (sync, stations, path):
-            sync.run()
-        self.assertIsInstance(sync.error, NotImplementedError)
+            with mock.patch.object(runner.topology, 'trajectory',
+                                   side_effect=RuntimeError('boom')):
+                sync.run()
+        self.assertIsInstance(sync.error, RuntimeError)
 
     def test_stop_ends_thread(self):
         cfg = config.ExperimentConfig(coppelia='off', trajectory='static')
@@ -155,26 +157,61 @@ class RunTest(unittest.TestCase):
     def test_network_is_stopped_when_setup_fails(self):
         with tempfile.TemporaryDirectory() as d:
             cfg = config.ExperimentConfig(
-                coppelia='off', model='nakagami',
-                output_dir=os.path.join(d, 'out'))
+                coppelia='off', output_dir=os.path.join(d, 'out'))
             with mock.patch.object(runner, 'Mininet_wifi') as wifi, \
+                    mock.patch.object(runner.topology, 'propagation',
+                                      side_effect=RuntimeError('boom')), \
+                    mock.patch.object(runner, 'run_cli') as cli, \
                     mock.patch('os.geteuid', return_value=0), \
                     mock.patch('signal.signal'):
-                with self.assertRaises(NotImplementedError):
+                with self.assertRaises(RuntimeError):
                     runner.run(cfg)
         wifi.return_value.stop.assert_called_once()
+        cli.assert_not_called()
 
     def test_stop_failure_is_only_a_warning(self):
         with tempfile.TemporaryDirectory() as d:
             cfg = config.ExperimentConfig(
-                coppelia='off', model='nakagami',
-                output_dir=os.path.join(d, 'out'))
+                coppelia='off', output_dir=os.path.join(d, 'out'))
             with mock.patch.object(runner, 'Mininet_wifi') as wifi, \
+                    mock.patch.object(runner.topology, 'propagation',
+                                      side_effect=ValueError('boom')), \
+                    mock.patch.object(runner, 'run_cli'), \
                     mock.patch('os.geteuid', return_value=0), \
                     mock.patch('signal.signal'):
                 wifi.return_value.stop.side_effect = RuntimeError('half up')
-                with self.assertRaises(NotImplementedError):
+                with self.assertRaises(ValueError):
                     runner.run(cfg)
+
+
+class BuildNetworkTest(unittest.TestCase):
+    def test_link_hooks_wrap_the_build(self):
+        cfg = config.ExperimentConfig(coppelia='off')
+        order = mock.Mock()
+        order.build_links.return_value = 'info'
+        order.add_stations.return_value = ['sta']
+        order.propagation.return_value = ('friis', {})
+        with mock.patch.object(runner.drones, 'add_stations',
+                               order.add_stations), \
+                mock.patch.object(runner.topology, 'propagation',
+                                  order.propagation), \
+                mock.patch.object(runner.links, 'add_access_points',
+                                  order.add_access_points), \
+                mock.patch.object(runner.links, 'build_links',
+                                  order.build_links), \
+                mock.patch.object(runner.links, 'start', order.start):
+            stations, link_info = runner.build_network(order.net, cfg)
+        self.assertEqual(stations, ['sta'])
+        self.assertEqual(link_info, 'info')
+        self.assertEqual(order.mock_calls, [
+            mock.call.add_stations(order.net, cfg),
+            mock.call.add_access_points(order.net, ['sta'], cfg),
+            mock.call.propagation(cfg),
+            mock.call.net.setPropagationModel(model='friis'),
+            mock.call.net.configureNodes(),
+            mock.call.build_links(order.net, ['sta'], cfg),
+            mock.call.net.build(),
+            mock.call.start(order.net, 'info')])
 
 
 class BatchTest(unittest.TestCase):
