@@ -1,0 +1,1 @@
+Error - mac address of the ping destination could not be resolved and is not a bat-host name: 192.168.123.3

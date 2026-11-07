@@ -1,0 +1,4 @@
+[B.A.T.M.A.N. adv 2025.4, MainIF/MAC: dr1-wlan0/00:00:00:00:00:01 (bat0/8e:18:b8:9f:b4:74 BATMAN_IV)]
+   Originator        last-seen (#/255) Nexthop           [outgoingIF]
+ * 00:00:00:00:00:02    0.132s   (244) 00:00:00:00:00:02 [ dr1-wlan0]
+ * 00:00:00:00:00:03    0.944s   (183) 00:00:00:00:00:02 [ dr1-wlan0]
