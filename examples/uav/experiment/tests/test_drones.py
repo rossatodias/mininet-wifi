@@ -20,6 +20,14 @@ class DronesTest(unittest.TestCase):
         macs = {drones.drone_mac(i) for i in range(1, 33)}
         self.assertEqual(len(macs), 32)
 
+    def test_names_and_addresses_up_to_32_drones(self):
+        names = drones.drone_names(32)
+        self.assertEqual(names[-1], 'dr32')
+        self.assertEqual(len(set(names)), 32)
+        ips = {drones.drone_ip(i) for i in range(1, 33)}
+        self.assertEqual(len(ips), 32)
+        self.assertEqual(drones.drone_ip(32), '10.0.0.32/8')
+
     def test_scene_formation_uses_original_positions(self):
         self.assertEqual(drones.initial_positions(cfg()),
                          [(30.0, 60.0, 0.0), (70.0, 30.0, 0.0),
@@ -32,6 +40,15 @@ class DronesTest(unittest.TestCase):
             cfg('--drones', '4', '--formation', 'line', '--spacing', '5'))
         self.assertEqual(len(pos), 4)
         self.assertEqual(pos[1][0] - pos[0][0], 5)
+
+    def test_add_stations_for_32_drones(self):
+        net = mock.Mock()
+        net.addStation.side_effect = lambda name, **kw: name
+        stations = drones.add_stations(
+            net, cfg('--drones', '32', '--formation', 'line'))
+        self.assertEqual(stations, drones.drone_names(32))
+        macs = [c.kwargs['mac'] for c in net.addStation.call_args_list]
+        self.assertEqual(len(set(macs)), 32)
 
     def test_add_stations(self):
         net = mock.Mock()

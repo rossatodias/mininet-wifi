@@ -113,16 +113,42 @@ def wait_for_scene(sim, timeout=60.0):
 
 # --- ensure_drones: owned by the drone-count work ---------------------------
 
+SCENE_DRONES = 3
+# Drone 1 starts the legacy remote API in its script, so it is never copied.
+COPY_SOURCES = (1, 2)
+
+
+def _drone_handles(sim, base):
+    return DroneHandles(base=base, model=sim.getObjectParent(base),
+                        target=sim.getObjectChild(base, 0))
+
+
+def _copy_drone(sim, source):
+    """Paste a whole drone model; return the handles of the copy."""
+    model = sim.copyPasteObjects([source.model], 1)[0]
+    size = len(sim.getObjectsInTree(model, sim.handle_all, 0))
+    expected = len(sim.getObjectsInTree(source.model, sim.handle_all, 0))
+    if size != expected:
+        raise RuntimeError('drone model copy is incomplete: %d of %d '
+                           'objects' % (size, expected))
+    return _drone_handles(
+        sim, sim.getObject('./Quadricopter_base', {'proxy': model}))
+
+
 def ensure_drones(sim, n):
-    """Handles of `n` drones; drone i corresponds to dr{i + 1}."""
-    if n > 3:
-        raise NotImplementedError('more than 3 drones in the scene')
-    handles = []
-    for i in range(n):
-        base = sim.getObject('/Quadricopter_base', {'index': i})
-        handles.append(DroneHandles(base=base,
-                                    model=sim.getObjectParent(base),
-                                    target=sim.getObjectChild(base, 0)))
+    """Handles of `n` drones; drone i corresponds to dr{i + 1}.
+
+    The scene drones come first, in scene order. Unused ones are removed;
+    missing ones are copies of drones 2 and 3, in creation order.
+    """
+    scene = [_drone_handles(sim, sim.getObject('/Quadricopter_base',
+                                               {'index': i}))
+             for i in range(SCENE_DRONES)]
+    for d in scene[n:]:
+        sim.removeModel(d.model)
+    handles = scene[:n]
+    for i in range(n - SCENE_DRONES):
+        handles.append(_copy_drone(sim, scene[COPY_SOURCES[i % 2]]))
     return handles
 
 # --- end of ensure_drones ---------------------------------------------------
