@@ -4,6 +4,7 @@
 
 import time
 import os
+import sys
 
 from mininet.log import setLogLevel, info
 from mn_wifi.link import wmediumd, adhoc
@@ -62,18 +63,21 @@ def topology():
 
     info("*** Starting CoppeliaSim\n")
     path = os.path.dirname(os.path.abspath(__file__))
+    os.makedirs('{}/data'.format(path), exist_ok=True)
     os.system('{}/CoppeliaSim_Edu/coppeliaSim.sh -s 100000 {}'
               '/simulation.ttt -gGUIITEMS_2 &'.format(path, path))
     time.sleep(10)
 
     info("*** Perform a simple test\n")
-    simpleTest = 'python {}/simpleTest.py '.format(path) + sta_drone_send + ' &'
+    simpleTest = '{} {}/simpleTest.py '.format(sys.executable, path) \
+                 + sta_drone_send + ' &'
     os.system(simpleTest)
 
     time.sleep(5)
 
     info("*** Configure the node position\n")
-    setNodePosition = 'python {}/setNodePosition.py '.format(path) + sta_drone_send + ' &'
+    setNodePosition = '{} {}/setNodePosition.py '.format(sys.executable, path) \
+                      + sta_drone_send + ' &'
     os.system(setNodePosition)
 
     info("*** Running CLI\n")
@@ -89,7 +93,7 @@ def kill_process():
     os.system('pkill -9 -f coppeliaSim')
     os.system('pkill -9 -f simpleTest.py')
     os.system('pkill -9 -f setNodePosition.py')
-    os.system('rm {}/data/*'.format(path))
+    os.system('rm -f {}/data/*'.format(path))
 
 
 if __name__ == '__main__':

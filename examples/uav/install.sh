@@ -5,7 +5,7 @@ release=`lsb_release -rs`
 
 if [[ $distro == "Ubuntu" ]]; then
 
-		if [[ $release == "20.10" || $release == "20.04" || $release == "18.10" || r$elease == "18.04" ]]; then
+		if [[ $release == "20.10" || $release == "20.04" || $release == "18.10" || $release == "18.04" ]]; then
 
 			echo "Downloading CoppeliaSim"
 			cd examples/uav/
