@@ -79,8 +79,7 @@ class PositionSync(threading.Thread):
             self.stop_event.wait(TICK)
 
 
-def build_network(cfg):
-    net = Mininet_wifi(link=wmediumd, wmediumd_mode=interference)
+def build_network(net, cfg):
     info("*** Creating nodes\n")
     stations = drones.add_stations(net, cfg)
     model, kwargs = topology.propagation(cfg)
@@ -91,7 +90,7 @@ def build_network(cfg):
     link_info = links.build_links(net, stations, cfg)
     info("*** Starting network\n")
     net.build()
-    return net, stations, link_info
+    return stations, link_info
 
 
 def start_coppelia(cfg, out_dir, bases):
@@ -158,7 +157,10 @@ def write_config(cfg, out_dir):
 
 
 def make_output_dir(path):
-    """Create `path`; return the topmost directory that did not exist."""
+    """Create `path`; return the topmost directory this call created.
+
+    An already existing `path` (empty, see config) is returned as is.
+    """
     top = path
     while not os.path.exists(os.path.dirname(top)):
         top = os.path.dirname(top)
@@ -167,14 +169,14 @@ def make_output_dir(path):
 
 
 def hand_over_output(top):
-    """Give the results under `top` to the user who started sudo."""
+    """Give the tree under `top` to the user who started sudo."""
     uid, gid = os.environ.get('SUDO_UID'), os.environ.get('SUDO_GID')
     if uid is None or gid is None:
         return
-    os.chown(top, int(uid), int(gid))
+    os.lchown(top, int(uid), int(gid))
     for root, dirs, files in os.walk(top):
         for name in dirs + files:
-            os.chown(os.path.join(root, name), int(uid), int(gid))
+            os.lchown(os.path.join(root, name), int(uid), int(gid))
 
 
 def _on_sigterm(signum, frame):
@@ -194,9 +196,10 @@ def run(cfg):
     if cfg.coppelia == 'off' and cfg.trajectory == 'scene':
         info("*** No CoppeliaSim: the scene trajectory keeps the drones "
              "static\n")
-    net = sync = proc = None
+    net = Mininet_wifi(link=wmediumd, wmediumd_mode=interference)
+    sync = proc = None
     try:
-        net, stations, link_info = build_network(cfg)
+        stations, link_info = build_network(net, cfg)
         bases = drones.initial_positions(cfg)
         handles = client = sim = None
         if cfg.coppelia != 'off':
@@ -217,6 +220,8 @@ def run(cfg):
             sync.stop()
         if proc is not None:
             stop_coppelia(proc, client, sim)
-        if net is not None:
+        try:
             net.stop()
+        except Exception as err:
+            warn('*** could not stop the network cleanly: %s\n' % err)
         hand_over_output(created)

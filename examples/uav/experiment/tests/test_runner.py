@@ -21,21 +21,40 @@ class OutputTest(unittest.TestCase):
             self.assertEqual(top, os.path.join(d, 'a'))
             self.assertTrue(os.path.isdir(os.path.join(d, 'a', 'b', 'c')))
 
+    def test_make_output_dir_single_new_level(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'out')
+            self.assertEqual(runner.make_output_dir(path), path)
+
+    def test_make_output_dir_existing_returns_itself(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(runner.make_output_dir(d), d)
+
     def test_hand_over_output_without_sudo_is_noop(self):
         with mock.patch.dict(os.environ, clear=True):
-            with mock.patch('os.chown') as chown:
+            with mock.patch('os.lchown') as lchown:
                 runner.hand_over_output('/nonexistent')
-        chown.assert_not_called()
+        lchown.assert_not_called()
 
-    def test_hand_over_output_chowns_tree(self):
+    def test_hand_over_output_touches_only_the_subtree(self):
         env = {'SUDO_UID': '1000', 'SUDO_GID': '1001'}
         with tempfile.TemporaryDirectory() as d:
-            open(os.path.join(d, 'f'), 'w').close()
+            top = os.path.join(d, 'a')
+            os.makedirs(os.path.join(top, 'sub'))
+            open(os.path.join(top, 'sub', 'f'), 'w').close()
+            os.symlink(d, os.path.join(top, 'link'))
             with mock.patch.dict(os.environ, env):
-                with mock.patch('os.chown') as chown:
-                    runner.hand_over_output(d)
-        chown.assert_any_call(d, 1000, 1001)
-        chown.assert_any_call(os.path.join(d, 'f'), 1000, 1001)
+                with mock.patch('os.lchown') as lchown, \
+                        mock.patch('os.chown') as chown:
+                    runner.hand_over_output(top)
+            touched = {c.args[0] for c in lchown.call_args_list}
+        self.assertEqual(touched, {top,
+                                   os.path.join(top, 'sub'),
+                                   os.path.join(top, 'sub', 'f'),
+                                   os.path.join(top, 'link')})
+        for call in lchown.call_args_list:
+            self.assertEqual(call.args[1:], (1000, 1001))
+        chown.assert_not_called()
 
     def test_write_config(self):
         with tempfile.TemporaryDirectory() as d:
@@ -130,6 +149,32 @@ class PositionSyncTest(unittest.TestCase):
             sync.start()
             sync.stop()
             self.assertFalse(sync.is_alive())
+
+
+class RunTest(unittest.TestCase):
+    def test_network_is_stopped_when_setup_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            cfg = config.ExperimentConfig(
+                coppelia='off', model='nakagami',
+                output_dir=os.path.join(d, 'out'))
+            with mock.patch.object(runner, 'Mininet_wifi') as wifi, \
+                    mock.patch('os.geteuid', return_value=0), \
+                    mock.patch('signal.signal'):
+                with self.assertRaises(NotImplementedError):
+                    runner.run(cfg)
+        wifi.return_value.stop.assert_called_once()
+
+    def test_stop_failure_is_only_a_warning(self):
+        with tempfile.TemporaryDirectory() as d:
+            cfg = config.ExperimentConfig(
+                coppelia='off', model='nakagami',
+                output_dir=os.path.join(d, 'out'))
+            with mock.patch.object(runner, 'Mininet_wifi') as wifi, \
+                    mock.patch('os.geteuid', return_value=0), \
+                    mock.patch('signal.signal'):
+                wifi.return_value.stop.side_effect = RuntimeError('half up')
+                with self.assertRaises(NotImplementedError):
+                    runner.run(cfg)
 
 
 class BatchTest(unittest.TestCase):

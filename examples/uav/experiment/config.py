@@ -196,8 +196,12 @@ def parse_args(argv=None):
             parser.error('coppeliaSim.sh not found in %s' % coppelia_dir)
         if not os.path.isfile(scene):
             parser.error('scene file not found: %s' % scene)
-    output_dir = a.output_dir or os.path.join(
-        'uav-results', time.strftime('%Y%m%d-%H%M%S'))
+    output_dir = os.path.abspath(a.output_dir or os.path.join(
+        'uav-results', time.strftime('%Y%m%d-%H%M%S')))
+    if os.path.exists(output_dir) and (not os.path.isdir(output_dir)
+                                       or os.listdir(output_dir)):
+        parser.error('--output-dir %s exists and is not an empty '
+                     'directory' % output_dir)
     return ExperimentConfig(
         drones=n, formation=a.formation, spacing=a.spacing,
         trajectory=a.trajectory, seed=a.seed, model=a.model, exp=a.exp,
@@ -206,7 +210,7 @@ def parse_args(argv=None):
         coppelia_dir=os.path.abspath(coppelia_dir),
         scene=os.path.abspath(scene), duration=a.duration, warmup=a.warmup,
         no_cli=a.no_cli, telemetry=a.telemetry,
-        output_dir=os.path.abspath(output_dir), metrics=a.metrics,
+        output_dir=output_dir, metrics=a.metrics,
         pairs=pairs, ping_count=a.ping_count,
         ping_interval=a.ping_interval, iperf_time=a.iperf_time,
         udp_bandwidth=a.udp_bandwidth)

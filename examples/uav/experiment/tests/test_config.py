@@ -92,6 +92,16 @@ class ValidationTest(unittest.TestCase):
         parse('--formation', 'circle', '--trajectory', 'orbit',
               '--model', 'nakagami', '--tech', 'mesh')
 
+    def test_output_dir_must_be_new_or_empty(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(parse('--output-dir', d).output_dir, d)
+            new = os.path.join(d, 'a', 'b')
+            self.assertEqual(parse('--output-dir', new).output_dir, new)
+            open(os.path.join(d, 'f'), 'w').close()
+            self.assertIn('--output-dir', rejected('--output-dir', d + '/.'))
+            self.assertIn('--output-dir',
+                          rejected('--output-dir', os.path.join(d, 'f')))
+
     def test_coppelia_dir_and_scene_are_checked(self):
         with tempfile.TemporaryDirectory() as d:
             with contextlib.redirect_stderr(io.StringIO()):
