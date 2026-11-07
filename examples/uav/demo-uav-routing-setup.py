@@ -97,18 +97,21 @@ def topology(args):
  
     info("*** Starting CoppeliaSim\n")
     path = os.path.dirname(os.path.abspath(__file__))
-    os.system('{}/CoppeliaSim_Edu_V4_1_0_Ubuntu18_04/coppeliaSim.sh -s {}'
+    os.makedirs('{}/data'.format(path), exist_ok=True)
+    os.system('{}/CoppeliaSim_Edu/coppeliaSim.sh -s {}'
               '/simulation.ttt -gGUIITEMS_2 &'.format(path, path))
     time.sleep(10)
 
     info("*** Perform a simple test\n")
-    simpleTest = 'python {}/simpleTest.py '.format(path) + sta_drone_send + ' &'
+    simpleTest = '{} {}/simpleTest.py '.format(sys.executable, path) \
+                 + sta_drone_send + ' &'
     os.system(simpleTest)
 
     time.sleep(5)
 
     info("*** Configure the node position\n")
-    setNodePosition = 'python {}/setNodePosition.py '.format(path) + sta_drone_send + ' &'
+    setNodePosition = '{} {}/setNodePosition.py '.format(sys.executable, path) \
+                      + sta_drone_send + ' &'
     os.system(setNodePosition)
 
     info("*** Running sflow-rt\n")
@@ -160,7 +163,8 @@ def kill_process():
     os.system('pkill -9 -f coppeliaSim')
     os.system('pkill -9 -f simpleTest.py')
     os.system('pkill -9 -f setNodePosition.py')
-    os.system('rm examples/uav/data/*')
+    os.system('rm -f {}/data/*'.format(
+        os.path.dirname(os.path.abspath(__file__))))
 
 
 if __name__ == '__main__':
