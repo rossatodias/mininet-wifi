@@ -52,11 +52,14 @@ mininet-wifi> py dr1.position
 mininet-wifi> dr1 ifconfig
 mininet-wifi> dr1 batctl n
 mininet-wifi> dr1 ping -c 5 dr2
+mininet-wifi> dr1 ping -c 5 192.168.123.3
 ```
 
-With `batman_adv` the routable address of each drone is on `bat0`. The scene
-makes the drones fly a diamond pattern, so reachability changes over time as
-they move away from and towards each other.
+`dr1 ping dr2` uses the `10.0.0.N` address of `drN-wlan0`, so it is a direct
+single-hop transmission that only works while both drones are in radio range.
+Traffic routed by `batman_adv` across several hops uses the `bat0` address
+`192.168.123.N`. The scene makes the drones fly a diamond pattern, so
+reachability changes over time as they move away from and towards each other.
 
 ---
 **NOTE**
