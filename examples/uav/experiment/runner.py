@@ -82,6 +82,7 @@ class PositionSync(threading.Thread):
 def build_network(net, cfg):
     info("*** Creating nodes\n")
     stations = drones.add_stations(net, cfg)
+    links.add_access_points(net, stations, cfg)
     model, kwargs = topology.propagation(cfg)
     net.setPropagationModel(model=model, **kwargs)
     info("*** Configuring nodes\n")
@@ -90,6 +91,7 @@ def build_network(net, cfg):
     link_info = links.build_links(net, stations, cfg)
     info("*** Starting network\n")
     net.build()
+    links.start(net, link_info)
     return stations, link_info
 
 
