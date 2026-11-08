@@ -5,6 +5,10 @@ Three drones (`dr1`, `dr2`, `dr3`) are flown in a CoppeliaSim scene
 remote API (TCP port 19999) and applied to the Mininet-WiFi stations, which
 talk over an ad hoc network running `batman_adv`.
 
+For a flag-driven version of this example (formations, trajectories,
+propagation models, link technologies, traffic metrics and an experiment
+matrix runner) see [experiment/README.md](experiment/README.md).
+
 Tested on Ubuntu 24.04 (WSL2) with CoppeliaSim Edu 4.9.0 rev6 and Python 3.12.
 
 ## Requirements
