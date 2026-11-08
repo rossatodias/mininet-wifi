@@ -291,6 +291,88 @@ config validation:
 | Links | `links.build_links(net, stations, cfg) -> LinkInfo`, `links.endpoint_ip(node, cfg)` | `adhoc` with batman_adv or no routing | `infra`, `mesh` |
 | Metrics | `metrics.run_metrics(net, cfg, info, out_dir)` | ping loss and RTT per pair | iperf, CSV, plots |
 
+## Experiment matrix
+
+`run_matrix.py` runs `uav_experiment.py` once per configuration and seed,
+one after the other, and aggregates the results. It needs root like the
+experiment itself (`--dry-run` and `--aggregate-only` do not).
+
+```
+# print the 51 commands of the default matrix (17 configurations x 3 seeds)
+python3 run_matrix.py --dry-run
+
+# the default campaign, headless CoppeliaSim
+sudo -E python3 run_matrix.py --output-dir uav-matrix/sweep
+
+# quick check without CoppeliaSim and shorter measurements
+sudo -E python3 run_matrix.py --coppelia off --only baseline tech-mesh \
+    --seeds 1 --ping-count 10 --iperf-time 3
+
+# continue an interrupted campaign, rebuild the tables and plots
+sudo -E python3 run_matrix.py --output-dir uav-matrix/sweep --resume
+python3 run_matrix.py --aggregate-only uav-matrix/sweep
+```
+
+The baseline is 5 drones in a `line` 20 m apart, `sweep` trajectory,
+`adhoc` with batman_adv, `logDistance` with exponent 3, warmup 25 s, 120
+pings every 0.5 s (one 60 s sweep period), 10 s iperf3 tests, UDP at 1M,
+metrics for `dr1:drN`. Each factor is changed on its own:
+
+| Factor | Levels (configuration names) |
+| --- | --- |
+| baseline | `baseline` |
+| drones | `drones-3`, `drones-8`, `drones-10` |
+| tech | `tech-infra`, `tech-mesh` |
+| model | `model-friis`, `model-logDistance-exp4.5`, `model-twoRayGround`, `model-logNormalShadowing`, `model-nakagami`, `model-ITU` |
+| formation | `formation-grid`, `formation-circle`, `formation-star` |
+| trajectory | `trajectory-static`, `trajectory-orbit` |
+
+That is 17 configurations. `logNormalShadowing` and `nakagami` use exponent
+3 and `--variance` is never passed. `--seeds` (default `1 2 3`) repeats
+every configuration; the seed only changes `random` formations, so here it
+labels a repetition. `--only` and `--exclude` take configuration names.
+`--full` runs the cartesian product of all levels (1008 configurations,
+named like `tech-mesh+trajectory-orbit`) and warns about the size;
+combinations that fail the configuration checks are skipped with the reason
+printed.
+
+`--warmup`, `--ping-count`, `--ping-interval`, `--iperf-time` and
+`--udp-bandwidth` replace the baseline values in every configuration.
+`--coppelia` is `headless` (default) or `off`.
+
+Runs are sequential, seed by seed, and each has a time limit: warmup, the
+metrics of the pairs and 120 s of startup margin (240 s for the baseline),
+or `--run-timeout`. A run that fails or times out is recorded, `mn -c` runs
+before the next one and the campaign goes on. On a timeout the run gets
+SIGTERM so it can tear down, then SIGKILL for its whole process group. The
+exit status is 1 if any run failed. `--resume` skips runs that already have
+a `summary.json`.
+
+```
+<campaign>/
+    campaign.json          matrix, seeds, times, outcome of every run
+    results.csv            one row per run
+    aggregated.csv         mean, std and n of each metric per configuration
+    summary.md             aggregated.csv as a markdown table
+    factor-<factor>.png    one comparison figure per factor
+    <config>/seed<S>.log   output of the run
+    <config>/seed<S>/      the output directory of that run
+```
+
+`results.csv` has the configuration, factor, level, seed, the main flags
+and, for the first pair, loss, RTT average and maximum, TCP and UDP
+throughput, jitter, UDP loss, hops after, mean distance, error count,
+measurement duration, exit code, timeout flag and wall time. `aggregated.csv`
+ignores missing values and reports how many runs had one (`_n`); the
+standard deviation is the sample one and is empty for a single value. Each
+figure shows loss, RTT, TCP, UDP, jitter and UDP loss as bars with mean and
+standard deviation, the baseline in gray.
+
+A baseline run takes about 135 s with headless CoppeliaSim (25 s warmup,
+80 s of metrics, about 25 s to start and stop the network and CoppeliaSim)
+and about 125 s with `--coppelia off`. The default 51 runs take about two
+hours; the larger drone counts start more slowly.
+
 ## Tests
 
 Unit tests need neither root nor CoppeliaSim:
