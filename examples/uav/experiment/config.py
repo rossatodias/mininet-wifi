@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from experiment import drones
+from experiment import drones, topology
 
 UAV_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -106,8 +106,9 @@ def build_parser():
                    help='with --no-cli, total run time in seconds '
                         '(default: stop once metrics are done)')
     g.add_argument('--warmup', type=float, default=20.0, metavar='S',
-                   help='with --no-cli, seconds to wait before metrics, '
-                        'batman_adv needs about 20 (default 20)')
+                   help='with --no-cli, seconds to wait before metrics; '
+                        'batman_adv needs about 18 with 5 drones '
+                        '(default 20)')
     g.add_argument('--no-cli', action='store_true',
                    help='batch mode: no CLI, no telemetry plot')
     g.add_argument('--telemetry', action='store_true',
@@ -163,6 +164,10 @@ def parse_args(argv=None):
                 '--variance must not be negative')
     check_range(parser, a.nakagami_m is None or a.nakagami_m > 0,
                 '--nakagami-m must be positive')
+    error = topology.propagation_error(a.model, a.exp, a.variance,
+                                       a.nakagami_m)
+    if error:
+        parser.error(error)
     check_range(parser, a.channel >= 1, '--channel must be positive')
     check_range(parser, a.duration is None or a.duration > 0,
                 '--duration must be positive')

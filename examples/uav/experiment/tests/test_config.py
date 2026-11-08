@@ -88,6 +88,16 @@ class ValidationTest(unittest.TestCase):
         rejected('--warmup', '-1')
         rejected('--udp-bandwidth', 'fast')
 
+    def test_propagation_flags_are_checked_up_front(self):
+        self.assertIn('--variance', rejected(
+            '--model', 'logNormalShadowing', '--variance', '3'))
+        self.assertIn('--exp', rejected('--exp', '3.25'))
+        self.assertIn('--nakagami-m', rejected(
+            '--model', 'nakagami', '--nakagami-m', '0.4'))
+        self.assertIn('--nakagami-m', rejected(
+            '--model', 'nakagami', '--nakagami-m', '1.234'))
+        parse('--model', 'friis', '--exp', '3.25', '--variance', '3')
+
     def test_follow_up_choices_are_accepted(self):
         parse('--formation', 'circle', '--trajectory', 'orbit',
               '--model', 'nakagami', '--tech', 'mesh')

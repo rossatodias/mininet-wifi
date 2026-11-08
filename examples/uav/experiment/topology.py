@@ -109,40 +109,47 @@ def trajectory(kind, base, t):
     raise NotImplementedError('trajectory %s' % kind)
 
 
-def _exponent(value):
-    """Path loss exponent as wmediumd stores it (one decimal)."""
-    if abs(value * 10 - round(value * 10)) > 1e-9:
-        raise ValueError('--exp %g is not a multiple of 0.1, the resolution '
-                         'of the wmediumd configuration' % value)
-    return value
+def _is_multiple(value, step):
+    ratio = value / step
+    return abs(ratio - round(ratio)) <= 1e-9
 
 
-def _nakagami_m(value):
-    """Nakagami shape as wmediumd accepts and stores it (two decimals)."""
-    if value < MIN_NAKAGAMI_M:
-        raise ValueError('--nakagami-m must be at least %g' %
-                         MIN_NAKAGAMI_M)
-    if abs(value * 100 - round(value * 100)) > 1e-9:
-        raise ValueError('--nakagami-m %g is not a multiple of 0.01, the '
-                         'resolution of the wmediumd configuration' % value)
-    return value
+def propagation_error(model, exp, variance, nakagami_m):
+    """Why the propagation flags cannot be honoured, or None.
+
+    wmediumd stores the exponent with one decimal and the Nakagami shape
+    with two, and Mininet-WiFi never sends the shadowing variance to it, so
+    such values are rejected instead of being dropped or rounded silently.
+    Flags the model does not use are ignored.
+    """
+    if model in ('logDistance', 'nakagami', 'logNormalShadowing'):
+        if not _is_multiple(exp, 0.1):
+            return ('--exp %g is not a multiple of 0.1, the resolution of '
+                    'the wmediumd configuration' % exp)
+    if model == 'logNormalShadowing' and variance is not None:
+        return ('--variance has no effect with wmediumd interference mode: '
+                'the shadowing sample is never sent to wmediumd')
+    if model == 'nakagami' and nakagami_m is not None:
+        if nakagami_m < MIN_NAKAGAMI_M:
+            return '--nakagami-m must be at least %g' % MIN_NAKAGAMI_M
+        if not _is_multiple(nakagami_m, 0.01):
+            return ('--nakagami-m %g is not a multiple of 0.01, the '
+                    'resolution of the wmediumd configuration' % nakagami_m)
+    return None
 
 
 def propagation(cfg):
-    """Return (model_name, kwargs) for net.setPropagationModel."""
-    if cfg.model == 'logDistance':
-        return 'logDistance', {'exp': _exponent(cfg.exp)}
+    """Return (model_name, kwargs) for net.setPropagationModel.
+
+    The flags must have passed `propagation_error`.
+    """
+    if cfg.model in ('logDistance', 'logNormalShadowing'):
+        return cfg.model, {'exp': cfg.exp}
     if cfg.model == 'nakagami':
-        kwargs = {'exp': _exponent(cfg.exp)}
+        kwargs = {'exp': cfg.exp}
         if cfg.nakagami_m is not None:
-            kwargs['m'] = _nakagami_m(cfg.nakagami_m)
+            kwargs['m'] = cfg.nakagami_m
         return 'nakagami', kwargs
-    if cfg.model == 'logNormalShadowing':
-        if cfg.variance is not None:
-            raise ValueError(
-                '--variance has no effect with wmediumd interference mode: '
-                'the shadowing sample is never sent to wmediumd')
-        return 'logNormalShadowing', {'exp': _exponent(cfg.exp)}
     if cfg.model in ('friis', 'twoRayGround', 'ITU'):
         return cfg.model, {}
     raise ValueError('unknown propagation model %s' % cfg.model)
