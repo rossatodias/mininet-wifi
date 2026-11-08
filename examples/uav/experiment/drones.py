@@ -2,6 +2,9 @@
 
 from experiment import topology
 
+# Layout of uav.py, used only with --coppelia off. With CoppeliaSim the
+# stations follow the scene drones, which start elsewhere (dr1 near
+# 59.5, 35.5, 36.2 in net coordinates).
 SCENE_POSITIONS = [(30.0, 60.0, 0.0), (70.0, 30.0, 0.0), (10.0, 20.0, 0.0)]
 
 

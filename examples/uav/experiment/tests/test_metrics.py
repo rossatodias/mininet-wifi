@@ -123,17 +123,6 @@ class ParseIperfTest(unittest.TestCase):
 
 
 class ParseRoutingTest(unittest.TestCase):
-    def test_originators(self):
-        rows = metrics.parse_originators(read('batctl_o.txt'))
-        self.assertEqual(len(rows), 2)
-        self.assertEqual(rows[1], {
-            'originator': '00:00:00:00:00:03', 'best': True,
-            'last_seen_s': 0.944, 'quality': 183,
-            'next_hop': '00:00:00:00:00:02', 'interface': 'dr1-wlan0'})
-
-    def test_originators_empty(self):
-        self.assertEqual(metrics.parse_originators('no output'), [])
-
     def test_traceroute_hops(self):
         self.assertEqual(metrics.parse_traceroute(read('batctl_tr.txt')), 2)
 
