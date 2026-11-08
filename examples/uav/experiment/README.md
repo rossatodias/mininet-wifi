@@ -11,6 +11,33 @@ The CoppeliaSim link uses the ZMQ remote API directly, so there is no socket
 server and no `data/` directory. For installing CoppeliaSim and the
 Mininet-WiFi requirements see the [demo README](../README.md).
 
+## Requirements
+
+Mininet-WiFi (`util/install.sh -Wlnfv`, with the `batman-adv` kernel module)
+and CoppeliaSim are installed as described in the [demo README](../README.md).
+On top of that the framework needs the following, tested on Ubuntu 24.04
+with Python 3.12 and CoppeliaSim Edu 4.9.0 rev6:
+
+| Package | Tested | Needed for |
+|---|---|---|
+| `python3-zmq` (pyzmq) | 24.0.1 | the CoppeliaSim ZMQ remote API client |
+| `python3-cbor2` | 5.6.2 | the same client (message encoding) |
+| `iperf3` | 3.16 | `--metrics` throughput, server and client run on the drones |
+| `batctl` | 2024.0 | `--metrics` originator table and trace with `--routing batman_adv` |
+| `iw` | 6.17 | `--metrics` mesh path dump with `--tech mesh`, built by `util/install.sh` |
+| `python3-matplotlib` | 3.6.3 | RTT and matrix plots, drawn with the Agg backend |
+
+The ZMQ client is not installed with pip: it is the one bundled with
+CoppeliaSim (`<coppelia-dir>/programming/zmqRemoteApi/clients/python/src`),
+and the framework adds it to `sys.path` itself. Without `pyzmq` and `cbor2`
+it fails with an `ImportError` when CoppeliaSim is used (`--coppelia gui` or
+`headless`); `--coppelia off` does not need them. `ping` and `ss` come from
+`iputils-ping` and `iproute2`, which are installed by default.
+
+```
+sudo apt install python3-zmq python3-cbor2 iperf3 batctl
+```
+
 ## Usage
 
 Both scripts live in `examples/uav`. The experiment needs root because of
