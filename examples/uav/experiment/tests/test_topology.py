@@ -243,34 +243,48 @@ class PropagationTest(unittest.TestCase):
                                      '--exp', '3')),
             ('logNormalShadowing', {'exp': 3.0}))
 
-    def test_log_normal_shadowing_rejects_variance(self):
-        with self.assertRaisesRegex(ValueError, '--variance'):
-            topology.propagation(cfg('--model', 'logNormalShadowing',
-                                     '--variance', '3'))
-
     def test_log_distance_ignores_other_parameters(self):
         self.assertEqual(
             topology.propagation(cfg('--variance', '3', '--nakagami-m',
                                      '2')),
             ('logDistance', {'exp': 4.5}))
 
-    def test_exponent_resolution(self):
-        with self.assertRaisesRegex(ValueError, '--exp'):
-            topology.propagation(cfg('--exp', '3.25'))
-
-    def test_nakagami_m_limits(self):
-        with self.assertRaisesRegex(ValueError, '--nakagami-m'):
-            topology.propagation(cfg('--model', 'nakagami', '--nakagami-m',
-                                     '0.4'))
-        with self.assertRaisesRegex(ValueError, '--nakagami-m'):
-            topology.propagation(cfg('--model', 'nakagami', '--nakagami-m',
-                                     '1.234'))
-
     def test_every_model_is_mapped(self):
         for model in config.MODELS:
             name, kwargs = topology.propagation(cfg('--model', model))
             self.assertEqual(name, model)
             self.assertIsInstance(kwargs, dict)
+
+
+class PropagationErrorTest(unittest.TestCase):
+    def error(self, model, exp=4.5, variance=None, nakagami_m=None):
+        return topology.propagation_error(model, exp, variance, nakagami_m)
+
+    def test_valid_parameters(self):
+        self.assertIsNone(self.error('logDistance', exp=3))
+        self.assertIsNone(self.error('nakagami', exp=3, nakagami_m=0.5))
+        self.assertIsNone(self.error('nakagami', nakagami_m=1.23))
+        self.assertIsNone(self.error('logNormalShadowing', exp=2.7))
+
+    def test_exponent_resolution(self):
+        for model in ('logDistance', 'nakagami', 'logNormalShadowing'):
+            self.assertIn('--exp', self.error(model, exp=3.25))
+
+    def test_log_normal_shadowing_rejects_variance(self):
+        self.assertIn('--variance',
+                      self.error('logNormalShadowing', variance=3))
+
+    def test_nakagami_m_limits(self):
+        self.assertIn('--nakagami-m', self.error('nakagami', nakagami_m=0.4))
+        self.assertIn('--nakagami-m',
+                      self.error('nakagami', nakagami_m=1.234))
+
+    def test_unused_parameters_are_ignored(self):
+        self.assertIsNone(self.error('friis', exp=3.25, variance=3,
+                                     nakagami_m=0.1))
+        self.assertIsNone(self.error('logDistance', variance=3,
+                                     nakagami_m=0.1))
+        self.assertIsNone(self.error('nakagami', variance=3))
 
 
 if __name__ == '__main__':

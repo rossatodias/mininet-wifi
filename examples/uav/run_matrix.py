@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 'Run a matrix of UAV experiments and aggregate the results'
 

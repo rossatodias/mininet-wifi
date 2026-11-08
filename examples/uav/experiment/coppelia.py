@@ -111,8 +111,6 @@ def wait_for_scene(sim, timeout=60.0):
         time.sleep(0.2)
 
 
-# --- ensure_drones: owned by the drone-count work ---------------------------
-
 SCENE_DRONES = 3
 # Drone 1 starts the legacy remote API in its script, so it is never copied.
 COPY_SOURCES = (1, 2)
@@ -150,8 +148,6 @@ def ensure_drones(sim, n):
     for i in range(n - SCENE_DRONES):
         handles.append(_copy_drone(sim, scene[COPY_SOURCES[i % 2]]))
     return handles
-
-# --- end of ensure_drones ---------------------------------------------------
 
 
 def disable_builtin_motion(sim, drones):
@@ -224,6 +220,6 @@ def terminate(proc, timeout=10.0):
         try:
             proc.wait(timeout)
         except subprocess.TimeoutExpired:
-            info('*** CoppeliaSim ignored SIGTERM, killing it\n')
+            info("*** CoppeliaSim ignored SIGTERM, killing it\n")
     _kill_group(proc.pid, signal.SIGKILL)
     proc.wait()
