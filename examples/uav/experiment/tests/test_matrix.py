@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from experiment import matrix
+from experiment import matrix, output
 
 EXPECTED_NAMES = [
     'baseline', 'drones-3', 'drones-8', 'drones-10', 'tech-infra',
@@ -498,7 +498,7 @@ class ResultsTest(unittest.TestCase):
                 write_run(self.campaign, name, seed,
                           summary(loss=loss), self.cfg)
                 record['runs'].append(outcome(name, seed))
-        matrix.write_json(os.path.join(self.campaign, 'campaign.json'),
+        output.write_json(os.path.join(self.campaign, 'campaign.json'),
                           record)
         paths = matrix.aggregate(self.campaign)
         files = sorted(os.path.basename(p) for p in paths)
@@ -625,7 +625,7 @@ class MainTest(unittest.TestCase):
             target = os.path.join(d, 'campaign')
             with mock.patch('os.geteuid', return_value=0), \
                     mock.patch.object(matrix, 'execute', side_effect=fake), \
-                    mock.patch.object(matrix.runner,
+                    mock.patch.object(matrix.output,
                                       'hand_over_output') as hand_over:
                 code, out, _ = self.run_main(
                     ['--coppelia', 'off', '--only', 'baseline', 'drones-3',
@@ -645,7 +645,7 @@ class MainTest(unittest.TestCase):
                     mock.patch.object(matrix, 'execute',
                                       return_value=(-15, True)), \
                     mock.patch.object(matrix, 'clean_network') as clean, \
-                    mock.patch.object(matrix.runner, 'hand_over_output'):
+                    mock.patch.object(matrix.output, 'hand_over_output'):
                 code, out, _ = self.run_main(
                     ['--coppelia', 'off', '--only', 'baseline', '--seeds',
                      '1', '--output-dir', target, '--run-timeout', '20'])
@@ -658,8 +658,8 @@ class MainTest(unittest.TestCase):
             record = campaign_record(('baseline',), (1,))
             write_run(d, 'baseline', 1, summary(), None)
             record['runs'] = [outcome('baseline', 1)]
-            matrix.write_json(os.path.join(d, 'campaign.json'), record)
-            with mock.patch.object(matrix.runner,
+            output.write_json(os.path.join(d, 'campaign.json'), record)
+            with mock.patch.object(matrix.output,
                                    'hand_over_output') as hand_over:
                 code, _, _ = self.run_main(['--aggregate-only', d])
             self.assertEqual(code, 0)

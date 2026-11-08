@@ -2,7 +2,6 @@
 
 import csv
 import dataclasses
-import json
 import os
 import signal
 import sys
@@ -15,7 +14,8 @@ from mn_wifi.link import wmediumd
 from mn_wifi.net import Mininet_wifi
 from mn_wifi.wmediumdConnector import interference
 
-from experiment import coppelia, drones, links, metrics, topology
+from experiment import (coppelia, drones, links, metrics, output,
+                        topology)
 
 TICK = 0.1
 
@@ -54,7 +54,7 @@ class PositionSync(threading.Thread):
                 self.loop(sim, writer, f)
         except Exception as err:
             self.error = err
-            warn('*** position sync stopped: %s\n' % err)
+            warn("*** position sync stopped: %s\n" % err)
         finally:
             if client is not None:
                 coppelia.close_client(client)
@@ -126,7 +126,7 @@ def stop_coppelia(proc, client, sim):
     try:
         coppelia.stop_simulation(sim)
     except Exception as err:
-        warn('*** could not stop the simulation: %s\n' % err)
+        warn("*** could not stop the simulation: %s\n" % err)
     coppelia.close_client(client)
     coppelia.terminate(proc)
 
@@ -154,31 +154,8 @@ def run_cli(net, stations, cfg):
 
 
 def write_config(cfg, out_dir):
-    with open(os.path.join(out_dir, 'config.json'), 'w') as f:
-        json.dump(dataclasses.asdict(cfg), f, indent=2)
-
-
-def make_output_dir(path):
-    """Create `path`; return the topmost directory this call created.
-
-    An already existing `path` (empty, see config) is returned as is.
-    """
-    top = path
-    while not os.path.exists(os.path.dirname(top)):
-        top = os.path.dirname(top)
-    os.makedirs(path, exist_ok=True)
-    return top
-
-
-def hand_over_output(top):
-    """Give the tree under `top` to the user who started sudo."""
-    uid, gid = os.environ.get('SUDO_UID'), os.environ.get('SUDO_GID')
-    if uid is None or gid is None:
-        return
-    os.lchown(top, int(uid), int(gid))
-    for root, dirs, files in os.walk(top):
-        for name in dirs + files:
-            os.lchown(os.path.join(root, name), int(uid), int(gid))
+    output.write_json(os.path.join(out_dir, 'config.json'),
+                      dataclasses.asdict(cfg))
 
 
 def _on_sigterm(signum, frame):
@@ -193,7 +170,7 @@ def run(cfg):
         os.environ['MPLBACKEND'] = 'Agg'
     signal.signal(signal.SIGTERM, _on_sigterm)
     out_dir = cfg.output_dir
-    created = make_output_dir(out_dir)
+    created = output.make_output_dir(out_dir)
     write_config(cfg, out_dir)
     if cfg.coppelia == 'off' and cfg.trajectory == 'scene':
         info("*** No CoppeliaSim: the scene trajectory keeps the drones "
@@ -225,5 +202,5 @@ def run(cfg):
         try:
             net.stop()
         except Exception as err:
-            warn('*** could not stop the network cleanly: %s\n' % err)
-        hand_over_output(created)
+            warn("*** could not stop the network cleanly: %s\n" % err)
+        output.hand_over_output(created)

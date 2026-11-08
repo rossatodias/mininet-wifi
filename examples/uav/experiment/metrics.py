@@ -9,7 +9,7 @@ import subprocess
 import threading
 import time
 
-from experiment import links
+from experiment import links, output
 
 IPERF_PORT = 5201
 CONNECT_TIMEOUT = 3.0
@@ -25,9 +25,6 @@ RTT_RE = re.compile(r'rtt min/avg/max/mdev = '
 REPLY_RE = re.compile(r'^\[(\d+\.\d+)\] \d+ bytes from \S+ icmp_seq=(\d+) '
                       r'.*?time=([\d.]+) ms\s*$', re.MULTILINE)
 MAC = r'(?:[0-9a-f]{2}:){5}[0-9a-f]{2}'
-ORIGINATOR_RE = re.compile(
-    r'^\s*(\*)?\s*(%s)\s+([\d.]+)s\s+\(\s*(\d+)\)\s+(%s)\s+\[\s*(\S+)\]'
-    % (MAC, MAC), re.MULTILINE)
 TRACE_HOP_RE = re.compile(r'^\s*(\d+):\s+' + MAC, re.MULTILINE)
 MPATH_RE = re.compile(
     r'^(%s)\s+(%s)\s+(\S+)\s+\d+\s+(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+'
@@ -78,15 +75,6 @@ def parse_iperf(data):
     elif result['error'] is None:
         result['error'] = 'no iperf3 result'
     return result
-
-
-def parse_originators(text):
-    """Parse `batctl o` into a list of originator dicts."""
-    return [{'originator': orig, 'best': bool(best),
-             'last_seen_s': float(seen), 'quality': int(quality),
-             'next_hop': hop, 'interface': iface}
-            for best, orig, seen, quality, hop, iface
-            in ORIGINATOR_RE.findall(text)]
 
 
 def parse_traceroute(text):
@@ -282,11 +270,6 @@ def draw_rtt(fig, title, start, replies, lost, samples):
     fig.tight_layout()
 
 
-def write_json(path, data):
-    with open(path, 'w') as f:
-        json.dump(data, f, indent=2)
-
-
 def collect_pair(net, cfg, info, src_name, dst_name):
     """Run the measurements of one pair and return the raw results."""
     src, dst = net.get(src_name), net.get(dst_name)
@@ -296,14 +279,14 @@ def collect_pair(net, cfg, info, src_name, dst_name):
     try:
         before = routing_snapshot(net, info, src_name, dst_name, 'before')
         ping_start = time.time()
-        output = ping_pair(src, dst_ip, cfg)
+        ping_output = ping_pair(src, dst_ip, cfg)
         ping_end = time.time()
         iperf = {proto: run_iperf(src, dst, dst_ip, cfg, proto == 'udp')
                  for proto in ('tcp', 'udp')}
         after = routing_snapshot(net, info, src_name, dst_name, 'after')
     finally:
         samples = sampler.stop()
-    return {'dst_ip': dst_ip, 'ping': output, 'iperf': iperf,
+    return {'dst_ip': dst_ip, 'ping': ping_output, 'iperf': iperf,
             'ping_window': (ping_start, ping_end), 'samples': samples,
             'before': before, 'after': after}
 
@@ -315,8 +298,8 @@ def write_pair(cfg, info, src_name, dst_name, raw, out_dir, writers):
     with open(os.path.join(out_dir, 'ping_%s.txt' % label), 'w') as f:
         f.write(raw['ping'])
     for proto, data in raw['iperf'].items():
-        write_json(os.path.join(out_dir, 'iperf_%s_%s.json' % (proto, label)),
-                   data)
+        output.write_json(
+            os.path.join(out_dir, 'iperf_%s_%s.json' % (proto, label)), data)
     with open(os.path.join(out_dir, 'routing_%s.txt' % label), 'w') as f:
         f.write('%s\n%s' % (raw['before'][0], raw['after'][0]))
     replies = parse_ping_replies(raw['ping'])
@@ -373,5 +356,5 @@ def run_metrics(net, cfg, info, out_dir):
                 src_name, dst_name, raw, duration))
             pf.flush()
             df.flush()
-    write_json(os.path.join(out_dir, 'summary.json'), summary)
+    output.write_json(os.path.join(out_dir, 'summary.json'), summary)
     return summary

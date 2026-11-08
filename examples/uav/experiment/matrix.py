@@ -18,7 +18,7 @@ import time
 from datetime import datetime
 from typing import Dict
 
-from experiment import config, runner
+from experiment import config, output
 
 SCRIPT = os.path.join(config.UAV_DIR, 'uav_experiment.py')
 DEFAULT_SEEDS = (1, 2, 3)
@@ -244,11 +244,6 @@ def read_json(path):
         return None
 
 
-def write_json(path, data):
-    with open(path, 'w') as f:
-        json.dump(data, f, indent=2)
-
-
 def has_summary(path):
     return os.path.isfile(os.path.join(path, 'summary.json'))
 
@@ -312,9 +307,9 @@ def run_all(experiments, seeds, campaign, mode, coppelia_dir, timeout=None,
             if not succeeded(outcome):
                 clean_network()
         record['runs'].append(outcome)
-        write_json(path, record)
+        output.write_json(path, record)
     record['finished'] = now()
-    write_json(path, record)
+    output.write_json(path, record)
     return record['runs']
 
 
@@ -569,7 +564,7 @@ def overrides_from(args):
 
 def hand_over(paths):
     for path in paths:
-        runner.hand_over_output(path)
+        output.hand_over_output(path)
 
 
 def plan(args, parser):
@@ -642,14 +637,14 @@ def main(argv=None):
                      'continue it' % args.output_dir)
     signal.signal(signal.SIGTERM, _on_sigterm)
     os.environ['MPLBACKEND'] = 'Agg'
-    created = runner.make_output_dir(args.output_dir)
+    created = output.make_output_dir(args.output_dir)
     try:
         outcomes = run_all(experiments, args.seeds, args.output_dir,
                            args.coppelia, args.coppelia_dir,
                            args.run_timeout, args.resume)
         aggregate(args.output_dir)
     finally:
-        runner.hand_over_output(created)
+        output.hand_over_output(created)
     failed = [o for o in outcomes if not o['skipped'] and not succeeded(o)]
     print('%d runs, %d failed; results in %s' % (
         len(outcomes), len(failed), args.output_dir))
